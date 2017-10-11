@@ -130,6 +130,9 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
                                     {sPoke.description}
                                 </span>
                             </div>
+                            <div>
+                                {this.props.error}
+                            </div>
                         </DialogContentText>
                     </DialogContent>
                     <DialogActions>
