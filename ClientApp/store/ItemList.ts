@@ -6,27 +6,28 @@ import * as Inventory from "./Inventory";
 // STATE
 
 export interface ItemListState {
-    loading: boolean;
-    query: string;
-    list: Item[];
-    selecteditem?: Item;
+    loading: boolean,
+    query: string,
+    list: Item[],
+    selecteditem?: Item,
     value: number,
     hidelist: boolean,
     valueError: string,
-    itemError: string
+    itemError: string,
+    addItemLoading: boolean
 }
 
 export interface Item {
-    name: string;
-    url: number;
-    type: string;
+    name: string,
+    url: number,
+    type: string
 }
 
 // ACTIONS 
 
 interface RequestItemListAction {
-    type: 'REQUEST_ITEM_LIST';
-    query: string;
+    type: 'REQUEST_ITEM_LIST',
+    query: string
 }
 
 interface ReceiveItemListAction {
@@ -48,7 +49,13 @@ interface SelectValueAction {
 interface AddItemAction {
     type: 'ADD_ITEM',
     name: string,
-    value: number
+    value: number,
+    addItemLoading: boolean
+}
+
+interface ItemAddedAction {
+    type: 'ITEM_ADDED',
+    addItemLoading: boolean
 }
 
 interface SetValueErrorAction {
@@ -59,7 +66,7 @@ interface SetItemErrorAction {
     type: 'SET_ITEM_ERROR'
 }
 
-type KnownAction = RequestItemListAction | ReceiveItemListAction | SelectItemAction | SelectValueAction | AddItemAction | SetValueErrorAction | SetItemErrorAction;
+type KnownAction = RequestItemListAction | ReceiveItemListAction | SelectItemAction | SelectValueAction | AddItemAction | SetValueErrorAction | SetItemErrorAction | ItemAddedAction;
 
 // ACTION CREATORS
 
@@ -115,20 +122,20 @@ export const actionCreators = {
                     value: value,
                 })
             })
-            .then(response => response.json() as Promise<Inventory.InventoryItem[]>)
-            .then(data => {
-                Inventory.actionCreators.requestInventory();
-            });
+                .then(response => response as Promise<string>)
+                .then(data => {
+                    dispatch({ type: 'ITEM_ADDED', addItemLoading: false });
+                });
 
             addTask(fetchTask);
-            dispatch({ type: 'ADD_ITEM', name: item.name, value: value });
+            dispatch({ type: 'ADD_ITEM', name: item.name, value: value, addItemLoading: true });
         }
     }
 };
 
 // REDUCER
 
-const unloadedState: ItemListState = { list: [], loading: false, query: "", selecteditem: undefined, hidelist: false, value: 0, valueError: "", itemError: "" };
+const unloadedState: ItemListState = { list: [], loading: false, query: "", selecteditem: undefined, hidelist: false, value: 0, valueError: "", itemError: "", addItemLoading: false };
 
 export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAction: Action) => {
     const action = incomingAction as KnownAction;
@@ -142,7 +149,8 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                 hidelist: state.hidelist,
                 value: state.value,
                 valueError: "",
-                itemError: ""
+                itemError: "",
+                addItemLoading: state.addItemLoading
             };
         case 'RECEIVE_ITEM_LIST':
             if (action.query === state.query) {
@@ -154,7 +162,8 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                     hidelist: (state.selecteditem === undefined || state.selecteditem.name !== state.query) ? true : false,
                     value: state.value,
                     valueError: "",
-                    itemError: ""
+                    itemError: "",
+                    addItemLoading: state.addItemLoading
                 };
             }
             break;
@@ -168,7 +177,8 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                     hidelist: state.hidelist,
                     value: state.value,
                     valueError: state.valueError,
-                    itemError: ""
+                    itemError: "",
+                    addItemLoading: state.addItemLoading
                 };
             }
             break;
@@ -181,19 +191,33 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                 hidelist: state.hidelist,
                 value: action.value,
                 valueError: "",
-                itemError: state.itemError
+                itemError: state.itemError,
+                addItemLoading: state.addItemLoading
             }
         case 'ADD_ITEM':
             return {
                 query: '',
                 list: [],
-                loading: false,
+                loading: true,
                 selecteditem: undefined,
                 hidelist: false,
                 value: 0,
                 valueError: "",
-                itemError: ""
+                itemError: "",
+                addItemLoading: action.addItemLoading
             };
+        case 'ITEM_ADDED': 
+            return {
+                query: state.query,
+                list: state.list,
+                loading: false,
+                selecteditem: state.selecteditem,
+                hidelist: state.hidelist,
+                value: state.value,
+                valueError: state.valueError,
+                itemError: state.itemError,
+                addItemLoading: action.addItemLoading
+            }
         case 'SET_VALUE_ERROR':
             return {
                 query: state.query,
@@ -203,7 +227,8 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                 hidelist: state.hidelist,
                 value: state.value,
                 valueError: 'Value must be greater than 0',
-                itemError: state.itemError
+                itemError: state.itemError,
+                addItemLoading: state.addItemLoading
             };
         case 'SET_ITEM_ERROR':
             return {
@@ -214,7 +239,8 @@ export const reducer: Reducer<ItemListState> = (state: ItemListState, incomingAc
                 hidelist: state.hidelist,
                 value: state.value,
                 valueError: state.valueError,
-                itemError: 'You must select an item to add'
+                itemError: 'You must select an item to add',
+                addItemLoading: state.addItemLoading
             };
         default:
             // The following line guarantees that every action in the KnownAction union has been covered by a case above

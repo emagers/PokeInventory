@@ -22,11 +22,11 @@ namespace PokeInventory.Controllers
             OkObjectResult result;
             if (string.IsNullOrEmpty(q))
             {
-                result = new OkObjectResult(items.Take(10));
+                result = new OkObjectResult(items.Take(3));
             }
             else
             {
-                result = new OkObjectResult(items.Where(x => x.Name.ToLower().Contains(q.ToLower())).Take(10));
+                result = new OkObjectResult(items.Where(x => x.Name.ToLower().Contains(q.ToLower())).Take(3));
             }
 
             return result;

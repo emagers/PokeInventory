@@ -149,90 +149,89 @@ namespace PokeInventory.Controllers
 
             //Get URL from list
             ListItem listItem = itemProvider.GetList().Where(x => x.Name.ToLower() == request.Name.ToLower()).FirstOrDefault();
-
+            
             //if it's an item, and it already exists in list, add to existing item
-            Item existingitem = (Item)inventory.Where(x => x.Name == listItem.Name).FirstOrDefault();
-            if (listItem.Type == "Item" && existingitem != null)
+            if (listItem != null && listItem.Type == "Item")
             {
-                existingitem.Count += request.Value;
-                SetSession(Guid.Parse(session));
-                return Ok();
-            }
-            else
-            {
-                if (listItem != null)
+                Item existingitem = (Item)inventory.Where(x => x.Name == listItem.Name).FirstOrDefault() ?? null;
+                if (existingitem != null)
+                {
+                    existingitem.Count += request.Value;
+                }
+                else
                 {
                     //Make call to get object info
                     string response = await pokeProvider.Get(listItem.Url);
                     JObject obj = JObject.Parse(response);
 
-                    IInventoryItem item;
-                    if (listItem.Type == "Item")
+                    string description = obj["flavor_text_entries"].Where(x => (x["language"]["name"].ToString() == "en")).FirstOrDefault()["text"].ToString();
+                    description = description.Replace('\n', ' ').Replace('\f', ' ');
+
+                    IInventoryItem item = new Item
                     {
-                        string description = obj["flavor_text_entries"].Where(x => (x["language"]["name"].ToString() == "en")).FirstOrDefault()["text"].ToString();
-                        description = description.Replace('\n', ' ').Replace('\f', ' ');
-
-                        item = new Item
-                        {
-                            Id = ++counter,
-                            Name = listItem.Name,
-                            Url = listItem.Url,
-                            Img = obj["sprites"]["default"].ToString(),
-                            Count = request.Value,
-                            Description = description
-                        };
-                    }
-                    else
-                    {
-                        //Item is a pokemon
-                        //Need to get species
-                        string speciesurl = obj["species"]["url"].ToString();
-                        string name = obj["species"]["name"].ToString();
-                        string species = await pokeProvider.Get(speciesurl);
-                        JObject specObj = JObject.Parse(species);
-                        string description = specObj["flavor_text_entries"].Where(x => (x["version"]["name"].ToString() == "yellow" && x["language"]["name"].ToString() == "en")).First()["flavor_text"].ToString();
-                        description = description.Replace('\n', ' ').Replace('\f', ' ');
-
-                        Pokemon pokemon = new Pokemon
-                        {
-                            Id = ++counter,
-                            Name = listItem.Name,
-                            Url = listItem.Url,
-                            Img = obj["sprites"]["front_default"].ToString(),
-                            Level = request.Value,
-                            Description = description,
-                            Evolution = await GetPokemonEvolution(specObj, name)
-                        };
-
-                        if (pokemon.Evolution.Count > 0 && pokemon.Evolution[0].Trigger == "level-up" && pokemon.Level >= Convert.ToInt32(pokemon.Evolution[0].Level))
-                        {
-                            request.Name = pokemon.Evolution[0].Pokemon;
-                            await Post(session, request);
-
-                            SetSession(Guid.Parse(session));
-                            return Ok();
-                        }
-                        else
-                        {
-                            item = pokemon;
-                        }
-                    }
+                        Id = ++counter,
+                        Name = listItem.Name,
+                        Url = listItem.Url,
+                        Img = obj["sprites"]["default"].ToString(),
+                        Count = request.Value,
+                        Description = description
+                    };
 
                     inventory.Add(item);
+                }
+
+                SetSession(Guid.Parse(session));
+                return Ok();
+            }
+            else if(listItem != null)
+            {
+                //Make call to get object info
+                string response = await pokeProvider.Get(listItem.Url);
+                JObject obj = JObject.Parse(response);
+
+                //Item is a pokemon
+                //Need to get species
+                string speciesurl = obj["species"]["url"].ToString();
+                string name = obj["species"]["name"].ToString();
+                string species = await pokeProvider.Get(speciesurl);
+                JObject specObj = JObject.Parse(species);
+                string description = specObj["flavor_text_entries"].Where(x => (x["version"]["name"].ToString() == "yellow" && x["language"]["name"].ToString() == "en")).First()["flavor_text"].ToString();
+                description = description.Replace('\n', ' ').Replace('\f', ' ');
+
+                Pokemon pokemon = new Pokemon
+                {
+                    Id = ++counter,
+                    Name = listItem.Name,
+                    Url = listItem.Url,
+                    Img = obj["sprites"]["front_default"].ToString(),
+                    Level = request.Value,
+                    Description = description,
+                    Evolution = await GetPokemonEvolution(specObj, name)
+                };
+
+                if (pokemon.Evolution.Count > 0 && pokemon.Evolution[0].Trigger == "level-up" && pokemon.Level >= Convert.ToInt32(pokemon.Evolution[0].Level))
+                {
+                    request.Name = pokemon.Evolution[0].Pokemon;
+                    await Post(session, request);
 
                     SetSession(Guid.Parse(session));
                     return Ok();
                 }
-                else
-                {
-                    return NotFound();
-                }
+
+                inventory.Add(pokemon);
+
+                SetSession(Guid.Parse(session));
+                return Ok();
+            }
+            else
+            {
+                return BadRequest();
             }
         }
 
         private async Task EvolvePokemon(Pokemon pokemon)
         {
-            if (pokemon.Evolution.Count > 1)
+            if (pokemon.Evolution.Count > 0)
             {
                 int index = 0;
                 if (pokemon.Evolution.Count >= 2)
@@ -242,7 +241,7 @@ namespace PokeInventory.Controllers
                     index = random.Next(pokemon.Evolution.Count - 1);
                 }
                 string evoName = pokemon.Evolution[index].Pokemon;
-                ListItem listItem = itemProvider.GetList().Where(x => x.Name == evoName).FirstOrDefault();
+                ListItem listItem = itemProvider.GetList().Where(x => x.Name.ToLower() == evoName.ToLower()).FirstOrDefault();
 
                 //Make call to get object info
                 string response = await pokeProvider.Get(listItem.Url);

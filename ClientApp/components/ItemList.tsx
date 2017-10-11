@@ -13,6 +13,10 @@ type ItemListStateProps =
     & RouteComponentProps<{}>;
 
 class ItemList extends React.Component<ItemListStateProps, {}> {
+    constructor(props: ItemListStateProps) {
+        super(props);
+    }
+
     componentWillMount() {
         this.props.requestItemList("");
         this.props.selectItem(undefined);
@@ -33,17 +37,29 @@ class ItemList extends React.Component<ItemListStateProps, {}> {
 
     private renderItemList() {
         const styles = {
+            container: {
+                
+            },
             countStyle: {
                 width: 50,
                 'margin-left': 5
             },
             buttonStyle: {
                 'margin-left': 5
+            },
+            listStyle: {
+                visibility: this.props.hidelist ? 'visible' : 'hidden',
+                position: 'absolute' as 'absolute',
+                margin: 'auto',
+                width: '50%',
+                left: '25%',
+                top: 55,
+                'z-index': 99999
             }
         };
 
         return (
-            <div>
+            <div style={styles.container}>
                 <span>
                     <TextField
                         error={this.props.itemError !== ""? true : false}
@@ -67,7 +83,7 @@ class ItemList extends React.Component<ItemListStateProps, {}> {
                         Add
                     </Button>
                 </span>
-                <List style={this.props.hidelist ? {} : { display: 'none' }}>
+                <List style={styles.listStyle}>
                     {this.props.list.map(item => {
                         return (
                             <ListItem button key={item.name} onClick={this.onClick.bind(this, item)}>

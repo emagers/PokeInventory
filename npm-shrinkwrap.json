@@ -1594,6 +1594,11 @@
         }
       }
     },
+    "material-ui-icons": {
+      "version": "1.0.0-beta.15",
+      "from": "material-ui-icons@latest",
+      "resolved": "https://registry.npmjs.org/material-ui-icons/-/material-ui-icons-1.0.0-beta.15.tgz"
+    },
     "math-expression-evaluator": {
       "version": "1.2.17",
       "from": "math-expression-evaluator@>=1.2.14 <2.0.0",

@@ -7,6 +7,8 @@ import ItemList from './ItemList';
 import { ApplicationState } from "../store";
 import * as InventoryState from '../store/Inventory';
 import * as ItemListState from '../store/ItemList';
+import { withStyles } from 'material-ui/styles';
+import { LinearProgress } from 'material-ui/Progress';
 
 type ApplicationStateProps =
     InventoryState.InventoryListState
@@ -39,17 +41,23 @@ class Home extends React.Component<ApplicationStateProps, {}> {
             },
             content: {
                 'text-align': 'center'
+            },
+            wrapper: {
+                position: 'relative' as 'relative'
             }
-        }
+        }; 
         return (
             <div style={styles.container}>
+                <LinearProgress style={{ visibility: this.props.addItemLoading === true ? 'visible' : 'hidden' }} color = "accent" mode="query" />
                 <Card style={styles.card}> 
                     <CardMedia style={styles.media}>
                         <img src="/resources/logo.png" style={styles.image} alt="logo" />
                     </CardMedia>
                     <CardContent style={styles.content} >
-                        <ItemList {...this.props} />
-                        <Inventory {...this.props} />
+                        <div style={styles.wrapper}>
+                            <ItemList {...this.props} />
+                            <Inventory {...this.props} />
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -58,6 +66,6 @@ class Home extends React.Component<ApplicationStateProps, {}> {
 }
 
 export default connect(
-    (state: ApplicationState) => (state.inventory, state.itemlist), // Selects which state properties are merged into the component's props
-    (InventoryState.actionCreators, ItemListState.actionCreators)             // Selects which action creators are merged into the component's props
+    (state: ApplicationState) => (state.inventory, state.itemlist), 
+    (InventoryState.actionCreators, ItemListState.actionCreators)   
 )(Home) as typeof Home;

@@ -28,7 +28,7 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
 
     componentWillMount() {
         this.props.requestInventory();
-        setInterval(this.props.requestInventory, 1000);
+        setInterval(this.props.requestInventory, 2000);
     }
 
     componentWillReceiveProps(nextProps: InventoryStateProps) {
@@ -46,14 +46,16 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
     private renderInventory() {
         const styles = {
             root: {
+                'margin-top': 100,
                 'display': 'flex',
                 'flex-wrap': 'wrap',
                 'justify-content': 'space-around',
+                'z-index': 1
             },
             gridList: {
                 'width': 500,
                 'height': 450,
-                'overflow-y': 'auto',
+                'overflow-y': 'auto'
             },
             titleStyle: {
                 color: 'rgb(0, 188, 212)',
@@ -65,6 +67,10 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
                 'margin-top': 45,
                 height: 100,
                 width: 75
+            },
+            imageDescStyle: {
+                width: 400,
+                height: 200
             }
         };
 
@@ -75,9 +81,23 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
         if (sItem !== undefined) {
             iDiag = (
                 <Dialog open={this.props.selectedItem !== undefined} onRequestClose={this.handleRequestClose}>
-                    <DialogTitle>{sItem.name}</DialogTitle>
+                    <DialogTitle>
+                        <span style={{ 'float': 'left' }}>
+                            {sItem.name}
+                        </span>
+                        <span style={{ 'float': 'right' }}>
+                            {sItem.count}
+                        </span>
+                    </DialogTitle>
                     <DialogContent>
-                        <DialogContentText></DialogContentText>
+                        <DialogContentText>
+                            <span style={{ 'float': 'left' }}>
+                                <img src={sItem.img} alt={sItem.name} />
+                            </span>
+                            <span style={{ 'float': 'right' }}>
+                                {sItem.description}
+                            </span>
+                        </DialogContentText>
                     </DialogContent>
                     <DialogActions>
                         <Button onClick={this.handleRequestClose} color="primary">
@@ -90,20 +110,38 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
 
         let pDiag;
         if (sPoke !== undefined) {
-            <Dialog open={this.props.selectedPokemon !== undefined} onRequestClose={this.handleRequestClose}>
-                <DialogTitle>{sPoke.name}</DialogTitle>
-                <DialogContent>
-                    <DialogContentText></DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={this.handleLevelUp} color="primary">
-                        Level Up
-                        </Button>
-                    <Button onClick={this.handleRequestClose} color="primary">
-                        Close
-                        </Button>
-                </DialogActions>
-            </Dialog>
+            pDiag = (
+                <Dialog open={this.props.selectedPokemon !== undefined} onRequestClose={this.handleRequestClose}>
+                    <DialogTitle>
+                        <span style={{ 'float': 'left' }}>
+                            {sPoke.name}
+                        </span>
+                        <span style={{ 'float': 'right' }}>
+                            lv.{sPoke.level}
+                        </span>
+                    </DialogTitle>
+                    <DialogContent>
+                        <DialogContentText>
+                            <div style={styles.imageDescStyle}>
+                                <span style={{ 'float': 'left' }}>
+                                    <img src={sPoke.img} alt={sPoke.name} />
+                                </span>
+                                <span style={{ 'float': 'right' }}>
+                                    {sPoke.description}
+                                </span>
+                            </div>
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={this.handleLevelUp} color="primary">
+                            Level Up
+                            </Button>
+                        <Button onClick={this.handleRequestClose} color="primary">
+                            Close
+                            </Button>
+                    </DialogActions>
+                </Dialog>
+                );
         }
 
         return (
@@ -122,11 +160,11 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
         );
     }
 
-    private handleOpenModal(item: InventoryState.InventoryItem) {
+    private handleOpenModal = (item: InventoryState.InventoryItem) => {
         this.props.selectInventoryItem(item.id);
     }
 
-    private handleLevelUp() {
+    private handleLevelUp = () => {
         let found = false;
         let inv = this.props.inventory;
         for (let i = 0; i < inv.length && !found; i++) {
@@ -143,7 +181,7 @@ class Inventory extends React.Component<InventoryStateProps, {}> {
         }
     }
 
-    private handleRequestClose() {
+    handleRequestClose = () => {
         this.props.removeSelectedItem();
     }
 };

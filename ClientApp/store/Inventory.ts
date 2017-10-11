@@ -46,6 +46,7 @@ export interface IItem {
     id: number,
     url: string,
     img: string,
+    count: number,
     description: string
 }
 
