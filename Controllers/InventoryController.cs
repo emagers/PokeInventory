@@ -5,33 +5,47 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Inventory.Models;
 using PokeInventory.Models;
-using System.Net.Http;
 using PokeInventory.Providers;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.Http;
 
-// For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
-
-namespace Inventory.Controllers
+namespace PokeInventory.Controllers
 {
     [Route("api/[controller]")]
     public class InventoryController : Controller
     {
+        private Session heldSession;
         private PokeApiProvider pokeProvider;
         private ItemListProvider itemProvider;
-        private static int counter = 0;
-        private static List<IInventoryItem> inventory = new List<IInventoryItem>();
+        private int counter;
+        private List<IInventoryItem> inventory;
 
-        public InventoryController(ItemListProvider itemProvider, PokeApiProvider pokeProvider)
+        public InventoryController(Session session, ItemListProvider itemProvider, PokeApiProvider pokeProvider)
         {
             this.itemProvider = itemProvider;
             this.pokeProvider = pokeProvider;
         }
 
+        private void LoadSession(Guid id)
+        {
+            Session.SetObjectAsJson(id, "NAME", "PokeApi");
+            counter = Session.GetObjectFromJson<int>(id, "counter");
+            inventory = Session.GetInventoryFromJson<List<IInventoryItem>>(id, "inventory");
+        }
+
+        private void SetSession(Guid id)
+        {
+            Session.SetObjectAsJson(id, "counter", counter);
+            Session.SetInventoryAsJson(id, "inventory", inventory);
+        }
+
         // GET: /<controller>/
         [HttpGet]
-        public IActionResult Get()
+        public async Task<IActionResult> Get(string session)
         {
+            LoadSession(Guid.Parse(session));
+
             InventoryItem[] items = new InventoryItem[inventory.Count];
             for (int i = 0; i < inventory.Count; i++)
             {
@@ -45,27 +59,103 @@ namespace Inventory.Controllers
         }
 
         [HttpGet("{id}")]
-        public IActionResult Get(int id)
+        public async Task<IActionResult> Get(int id, string session)
         {
+            LoadSession(Guid.Parse(session));
+
             IInventoryItem item = inventory.Find(x => x.Id == id);
 
             if (item == null)
-                return new NotFoundResult();
+            {
+                SetSession(Guid.Parse(session));
+                return new JsonResult(new List<int>());
+            }
 
             return new OkObjectResult(item);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> Post([FromBody]AddItemRequest request)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Put(int id, string session, [FromBody]UpdateItemRequest request)
         {
+            LoadSession(Guid.Parse(session));
+
+            IInventoryItem item = inventory.Find(x => x.Id == id);
+            if (item == null)
+            {
+                SetSession(Guid.Parse(session));
+                return NotFound();
+            }
+
+            switch (request.Action)
+            {
+                case "delete":
+                    if (item.GetType() == typeof(Item))
+                    {
+                        Item modItem = (Item)item;
+                        if (request.Count == null || modItem.Count - request.Count.Value <= 0)
+                        {
+                            inventory.Remove(item);
+                        }
+                        else
+                        {
+                            modItem.Count -= request.Count.Value;
+                        }
+                    }
+                    else
+                    {
+                        inventory.Remove(item);
+                    }
+                    break;
+                case "level":
+                    if (item.GetType() == typeof(Pokemon))
+                    {
+                        Item rarecandy = (Item)inventory.Find(x => x.Name.ToLower() == "rare candy");
+                        if (rarecandy == null)
+                        {
+                            SetSession(Guid.Parse(session));
+                            return new JsonResult(new { Error = $"No rare candies found to evolve {item.Name}" });
+                        }
+
+                        Pokemon pokemon = (Pokemon)item;
+                        pokemon.Level++;
+
+                        if (pokemon.Evolution.Count > 0)
+                        {
+                            if (pokemon.Evolution[0].Trigger == "level-up" && pokemon.Level >= Convert.ToInt32(pokemon.Evolution[0].Level))
+                            {
+                                await EvolvePokemon(pokemon);
+                            }
+
+                            rarecandy.Count -= 1;
+                            if (rarecandy.Count == 0)
+                            {
+                                inventory.Remove(rarecandy);
+                            }
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+
+            SetSession(Guid.Parse(session));
+            return new JsonResult(item);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Post(string session, [FromBody]AddItemRequest request)
+        {
+            LoadSession(Guid.Parse(session));
+
             //Get URL from list
-            ListItem listItem = itemProvider.GetList().Where(x => x.Name == request.Name).FirstOrDefault();
+            ListItem listItem = itemProvider.GetList().Where(x => x.Name.ToLower() == request.Name.ToLower()).FirstOrDefault();
 
             //if it's an item, and it already exists in list, add to existing item
             Item existingitem = (Item)inventory.Where(x => x.Name == listItem.Name).FirstOrDefault();
             if (listItem.Type == "Item" && existingitem != null)
             {
                 existingitem.Count += request.Value;
+                SetSession(Guid.Parse(session));
                 return Ok();
             }
             else
@@ -103,7 +193,7 @@ namespace Inventory.Controllers
                         string description = specObj["flavor_text_entries"].Where(x => (x["version"]["name"].ToString() == "yellow" && x["language"]["name"].ToString() == "en")).First()["flavor_text"].ToString();
                         description = description.Replace('\n', ' ').Replace('\f', ' ');
 
-                        item = new Pokemon
+                        Pokemon pokemon = new Pokemon
                         {
                             Id = ++counter,
                             Name = listItem.Name,
@@ -113,16 +203,65 @@ namespace Inventory.Controllers
                             Description = description,
                             Evolution = await GetPokemonEvolution(specObj, name)
                         };
+
+                        if (pokemon.Evolution.Count > 0 && pokemon.Evolution[0].Trigger == "level-up" && pokemon.Level >= Convert.ToInt32(pokemon.Evolution[0].Level))
+                        {
+                            request.Name = pokemon.Evolution[0].Pokemon;
+                            await Post(session, request);
+
+                            SetSession(Guid.Parse(session));
+                            return Ok();
+                        }
+                        else
+                        {
+                            item = pokemon;
+                        }
                     }
 
                     inventory.Add(item);
 
+                    SetSession(Guid.Parse(session));
                     return Ok();
                 }
                 else
                 {
                     return NotFound();
                 }
+            }
+        }
+
+        private async Task EvolvePokemon(Pokemon pokemon)
+        {
+            if (pokemon.Evolution.Count > 1)
+            {
+                int index = 0;
+                if (pokemon.Evolution.Count >= 2)
+                {
+                    //If there are multiple evolutions, choose one at random
+                    Random random = new Random();
+                    index = random.Next(pokemon.Evolution.Count - 1);
+                }
+                string evoName = pokemon.Evolution[index].Pokemon;
+                ListItem listItem = itemProvider.GetList().Where(x => x.Name == evoName).FirstOrDefault();
+
+                //Make call to get object info
+                string response = await pokeProvider.Get(listItem.Url);
+                JObject obj = JObject.Parse(response);
+
+                string speciesurl = obj["species"]["url"].ToString();
+                string name = obj["species"]["name"].ToString();
+                string species = await pokeProvider.Get(speciesurl);
+                JObject specObj = JObject.Parse(species);
+                string description = specObj["flavor_text_entries"].Where(x => (x["version"]["name"].ToString() == "yellow" && x["language"]["name"].ToString() == "en")).First()["flavor_text"].ToString();
+                description = description.Replace('\n', ' ').Replace('\f', ' ');
+
+                List<Evolution> evos = await GetPokemonEvolution(specObj, name);
+
+                pokemon.Name = listItem.Name;
+                pokemon.Url = listItem.Url;
+                pokemon.Img = obj["sprites"]["front_default"].ToString();
+                pokemon.Description = description;
+                pokemon.Evolution = await GetPokemonEvolution(specObj, name);
             }
         }
 
@@ -187,13 +326,18 @@ namespace Inventory.Controllers
         }
 
         [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id, string session)
         {
+            LoadSession(Guid.Parse(session));
+
             IInventoryItem item = inventory.Find(x => x.Id == id);
             if (item == null)
+            {
                 return new NotFoundResult();
+            }
 
             inventory.Remove(item);
+            SetSession(Guid.Parse(session));
             return new OkObjectResult(inventory);
         }
     }

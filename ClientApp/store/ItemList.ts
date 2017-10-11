@@ -104,7 +104,7 @@ export const actionCreators = {
             dispatch({ type: 'SET_ITEM_ERROR' });
 
         if ((value > 0 && value <= 9999) && item) {
-            let fetchTask = fetch(`api/Inventory/`, {
+            let fetchTask = fetch(`api/Inventory/?session=` + getState().inventory.session, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',

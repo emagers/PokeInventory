@@ -1,9 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
 namespace PokeInventory.Controllers
 {
@@ -16,6 +13,7 @@ namespace PokeInventory.Controllers
 
         public IActionResult Error()
         {
+            HttpContext.Session.SetString("NAME", "PokeInventory");
             ViewData["RequestId"] = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
             return View();
         }
